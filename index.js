@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 require("dotenv").config();
@@ -32,11 +32,13 @@ const verifyToken = (req, res, next) => {
   const token = req?.cookies?.token;
 
   if (!token) {
-    return res.status(401).send({ message: "unauthorized access" });
+    return res.status(401).send({ message: "Unauthorized access" });
   }
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
     if (err) {
-      return res.status(401).send({ message: "unauthorized access" });
+      return res
+        .status(403)
+        .send({ message: "Access forbidden for this user." });
     }
     req.user = decoded;
     next();
@@ -49,6 +51,7 @@ async function run() {
     // await client.connect();
 
     const categoryCollection = client.db("bookShelfDB").collection("categorys");
+    const booksCollection = client.db("bookShelfDB").collection("books");
 
     app.get("/api/v1/categorys", async (req, res) => {
       const cursor = categoryCollection.find();
@@ -72,6 +75,37 @@ async function run() {
           sameSite: "none",
         })
         .send({ success: true });
+    });
+
+    app.get("/api/v1/books", async (req, res) => {
+      let query = {};
+      if (req.query?.category) {
+        query = { category: req.query.category };
+      }
+      const result = await booksCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.post("/api/v1/addbooks", verifyToken, async (req, res) => {
+      const book = req.body;
+      const result = await booksCollection.insertOne(book);
+      res.send(result);
+    });
+    app.patch("/api/v1/books/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedBookInfo = req.body;
+      const updatedBook = {
+        $set: {
+          photoUrl: updatedBookInfo.photoUrl,
+          name: updatedBookInfo.name,
+          authorName: updatedBookInfo.authorName,
+          category: updatedBookInfo.category,
+          rating: updatedBookInfo.rating,
+        },
+      };
+      const result = await booksCollection.updateOne(filter, updatedBook);
+      res.send(result);
     });
 
     await client.db("admin").command({ ping: 1 });
