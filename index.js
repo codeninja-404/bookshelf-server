@@ -107,6 +107,7 @@ async function run() {
       const result = await booksCollection.updateOne(filter, updatedBook);
       res.send(result);
     });
+    
     app.get("/api/v1/details/:id",async(req,res)=>{
       const id = req.params.id
       const filter = { _id: new ObjectId(id) };
