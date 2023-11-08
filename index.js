@@ -41,6 +41,7 @@ const verifyToken = (req, res, next) => {
         .send({ message: "Access forbidden for this user." });
     }
     req.user = decoded;
+
     next();
   });
 };
@@ -52,6 +53,7 @@ async function run() {
 
     const categoryCollection = client.db("bookShelfDB").collection("categorys");
     const booksCollection = client.db("bookShelfDB").collection("books");
+    const borrowedCollection = client.db("bookShelfDB").collection("borrowed");
 
     app.get("/api/v1/categorys", async (req, res) => {
       const cursor = categoryCollection.find();
@@ -77,7 +79,7 @@ async function run() {
         .send({ success: true });
     });
 
-    app.get("/api/v1/books", async (req, res) => {
+    app.get("/api/v1/books", verifyToken, async (req, res) => {
       let query = {};
       if (req.query?.category) {
         query = { category: req.query.category };
@@ -107,13 +109,28 @@ async function run() {
       const result = await booksCollection.updateOne(filter, updatedBook);
       res.send(result);
     });
-    
-    app.get("/api/v1/details/:id",async(req,res)=>{
-      const id = req.params.id
+
+    app.post("/api/v1/borrowed", async (req, res) => {
+      const borrowedBook = req.body;
+      const borrowed = await borrowedCollection.find().toArray();
+      const exiest = borrowed.find((book) => book._id === borrowedBook._id);
+      if (exiest) {
+        return res.send("Book already borrowed");
+      }
+      const result = await borrowedCollection.insertOne(borrowedBook);
+      res.send(result);
+    });
+    app.get("/api/v1/borrowed", async (req, res) => {
+      const result = await borrowedCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/api/v1/details/:id", async (req, res) => {
+      const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
-      const result =await booksCollection.findOne(filter)
-      res.send(result)
-    })
+      const result = await booksCollection.findOne(filter);
+      res.send(result);
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
