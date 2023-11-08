@@ -80,6 +80,8 @@ async function run() {
     });
 
     app.get("/api/v1/books", verifyToken, async (req, res) => {
+      
+
       let query = {};
       if (req.query?.category) {
         query = { category: req.query.category };
@@ -95,33 +97,54 @@ async function run() {
     });
     app.patch("/api/v1/books/:id", async (req, res) => {
       const id = req.params.id;
+      
       const filter = { _id: new ObjectId(id) };
       const updatedBookInfo = req.body;
-      const updatedBook = {
-        $set: {
-          photoUrl: updatedBookInfo.photoUrl,
-          name: updatedBookInfo.name,
-          authorName: updatedBookInfo.authorName,
-          category: updatedBookInfo.category,
-          rating: updatedBookInfo.rating,
-        },
-      };
-      const result = await booksCollection.updateOne(filter, updatedBook);
+
+      if (req.query.quantity) {
+        update = {
+          $set: {
+            quantity: req.query.quantity,
+          },
+        };
+      } else {
+        update = {
+          $set: {
+            photoUrl: updatedBookInfo.photoUrl,
+            name: updatedBookInfo.name,
+            authorName: updatedBookInfo.authorName,
+            category: updatedBookInfo.category,
+            rating: updatedBookInfo.rating,
+          },
+        };
+      }
+      const result = await booksCollection.updateOne(filter, update);
       res.send(result);
     });
 
     app.post("/api/v1/borrowed", async (req, res) => {
       const borrowedBook = req.body;
-      const borrowed = await borrowedCollection.find().toArray();
-      const exiest = borrowed.find((book) => book._id === borrowedBook._id);
-      if (exiest) {
-        return res.send("Book already borrowed");
-      }
+      // const borrowed = await borrowedCollection.find().toArray();
+      // const exiest = borrowed.find((book) => book._id === borrowedBook._id);
+      // if (exiest) {
+      //   return res.send("Book already borrowed");
+      // }
       const result = await borrowedCollection.insertOne(borrowedBook);
       res.send(result);
     });
-    app.get("/api/v1/borrowed", async (req, res) => {
-      const result = await borrowedCollection.find().toArray();
+
+    app.get("/api/v1/borrowed", verifyToken, async (req, res) => {
+      let query = {};
+      if (req.query?.email) {
+        query = { email: req.query.email };
+      }
+      const result = await borrowedCollection.find(query).toArray();
+      res.send(result);
+    });
+    app.delete("/api/v1/borrowed/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await borrowedCollection.deleteOne(query);
       res.send(result);
     });
 
